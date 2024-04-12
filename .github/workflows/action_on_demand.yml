@@ -50,3 +50,4 @@ jobs:
             exit 1
           else
             echo "All runs passed"
+          fi
