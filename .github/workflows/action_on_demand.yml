@@ -19,20 +19,13 @@ jobs:
       - name: Find all quickbuild.sh scripts
         id: set-matrix
         run: |
-            files=($(find $GITHUB_WORKSPACE -executable -type f -name 'quickbuild.sh'))
-            json_array="["
-            for file in "${files[@]}"; do
-              json_array+="{\"quickbuild\":\"$file\"},"
-            done
-            json_array="${json_array%,}]"
-            echo "JSON Array: $json_array"
-            echo "::set-output name=matrix::$json_array"
+          echo "::set-output name=matrix::$(find $GITHUB_WORKSPACE -executable -type f -name 'quickbuild.sh' | jq -R -s -c 'split("\n")[:-1] | map({quickbuild: .})')"
+          # format all quickbuild.sh scripts as JSON array
             
   build:
     needs: prepare
     runs-on: ubuntu-latest
     strategy:
-      fail-fast: false
       matrix: ${{fromJson(needs.prepare.outputs.matrix)}}
       # Matrix strategy that will run 'build' job in parallel
 
