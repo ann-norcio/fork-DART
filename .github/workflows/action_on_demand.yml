@@ -19,7 +19,7 @@ jobs:
       - name: Find all quickbuild.sh scripts
         id: set-matrix
         run: |
-          echo "::set-output name=matrix::$(find $GITHUB_WORKSPACE -executable -type f -name 'quickbuild.sh' | jq -R -s -c 'split("\n")[:-1] | map({quickbuild: .})')"
+          echo "::set-output name=matrix::$(find $GITHUB_WORKSPACE -executable -type f -name 'quickbuild.sh' | jq -R -s -c 'split("\n")[:-1] | map({script: .})')"
           # format all quickbuild.sh scripts as JSON array
             
   build:
@@ -63,8 +63,8 @@ jobs:
 
       - name: Run quickbuild.sh scripts
         run: |
-          cd "$(dirname "${{ matrix.quickbuild }}")"
-          ./quickbuild.sh || echo "FAILED: ${{ matrix.quickbuild }}" >> $GITHUB_WORKSPACE/quickbuild-failures.txt
+          cd "$(dirname "${{ matrix.script }}")"
+          ./quickbuild.sh || echo "FAILED: ${{ matrix.script }}" >> $GITHUB_WORKSPACE/quickbuild-failures.txt
           # Run quickbuild.sh scripts and log failures
 
       - name: Report Failures
