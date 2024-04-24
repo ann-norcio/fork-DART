@@ -4,24 +4,55 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  prepare:
     runs-on: ubuntu-latest
-   
-    container: 
-      image: hkershaw/dart-dep:1.0
-      options: "--cap-add=SYS_PTRACE"
+    # Using a matrix (JSON array) to run the 'build' job in parallel for each quickbuild.sh script
+
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      # Outputs the matrix for the 'build' job
 
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
-      
+        # Check out repo
+
+      - name: Find all quickbuild.sh scripts
+        id: set-matrix
+        run: |
+          files=($(find $GITHUB_WORKSPACE -executable -type f -name 'quickbuild.sh'))
+          json_array="["
+          for file in "${files[@]}"; do
+            json_array+="{\"quickbuild\":\"$file\"},"
+          done
+          json_array="${json_array%,}]"
+          echo "::set-output name=matrix::$json_array"
+          # Find all quickbuild.sh scripts in the repository and create a JSON array
+
+  build:
+    needs: prepare
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: ${{fromJson(needs.prepare.outputs.matrix)}}
+      # Matrix strategy that will run 'build' job in parallel
+
+    container: 
+      image: hkershaw/dart-dep:1.0
+      options: "--cap-add=SYS_PTRACE"
+      # Docker container (need new one for RTTOV)
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        # Re-checkout repo
+
       - name: Set to safe directory
         run: git config --global --add safe.directory /__w/${{ github.event.repository.name }}/${{ github.event.repository.name }}
-      
+
       - name: Create mkmf.template
         run: |
-          # echo "RTTOV version ${{ github.event.inputs.rttov_version }}"
           cp build_templates/mkmf.template.gfortran build_templates/mkmf.template
+          # Copy gfortran mkmf.template only
 
       - name: Run fixsystem
         run: |
@@ -29,25 +60,25 @@ jobs:
           cd $DART/assimilation_code/modules/utilities
           ./fixsystem gfortran
           cd -
+          # Run fixsystem once
 
       - name: Modify input.nml files
         run: |
           find $DART -name input.nml -exec sed -i -e "/^[[:space:]]*#/! s|.*output_obs_def_mod_file.*|output_obs_def_mod_file = './obs_def_mod.f90'|g" \
             -e "/^[[:space:]]*#/! s|.*output_obs_qty_mod_file.*|output_obs_qty_mod_file = './obs_kind_mod.f90'|g" \
             -e "/^[[:space:]]*#/! s|.*output_obs_kind_mod_file.*|output_obs_qty_mod_file = './obs_kind_mod.f90'|g" {} \;
+          # update input.nm files to avoid race conditions when running preprocess
 
       - name: Run quickbuild.sh scripts
         run: |
-          find $DART -executable -type f -name quickbuild.sh | while read qb; do
-            (cd "$(dirname "$qb")" && ./quickbuild.sh) || echo "FAILED: $qb" >> $GITHUB_WORKSPACE/quickbuild-failures.txt
-          done
-      
+          cd "$(dirname "${{ matrix.quickbuild }}")"
+          ./quickbuild.sh || echo "FAILED: ${{ matrix.quickbuild }}" >> $GITHUB_WORKSPACE/quickbuild-failures.txt
+          # Run quickbuild.sh scripts and log failures
+
       - name: Report Failures
+        if: failure()
         run: |
-          if [ -f $GITHUB_WORKSPACE/quickbuild-failures.txt ]; then
-            echo "Failed builds:"
-            cat $GITHUB_WORKSPACE/quickbuild-failures.txt
-            exit 1
-          else
-            echo "All runs passed"
-          fi
+          echo "Fails:"
+          cat $GITHUB_WORKSPACE/quickbuild-failures.txt
+          exit 1
+          # Report all failed runs
