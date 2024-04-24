@@ -27,7 +27,7 @@ jobs:
             json_array="${json_array%,}]"
             echo "JSON Array: $json_array"
             echo "::set-output name=matrix::$json_array"
-
+            
   build:
     needs: prepare
     runs-on: ubuntu-latest
