@@ -15,24 +15,24 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
-        # Check out repo
 
       - name: Find all quickbuild.sh scripts
         id: set-matrix
         run: |
-          files=($(find $GITHUB_WORKSPACE -executable -type f -name 'quickbuild.sh'))
-          json_array="["
-          for file in "${files[@]}"; do
-            json_array+="{\"quickbuild\":\"$file\"},"
-          done
-          json_array="${json_array%,}]"
-          echo "::set-output name=matrix::$json_array"
-          # Find all quickbuild.sh scripts in the repository and create a JSON array
+            files=($(find $GITHUB_WORKSPACE -executable -type f -name 'quickbuild.sh'))
+            json_array="["
+            for file in "${files[@]}"; do
+              json_array+="{\"quickbuild\":\"$file\"},"
+            done
+            json_array="${json_array%,}]"
+            echo "JSON Array: $json_array"
+            echo "::set-output name=matrix::$json_array"
 
   build:
     needs: prepare
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix: ${{fromJson(needs.prepare.outputs.matrix)}}
       # Matrix strategy that will run 'build' job in parallel
 
@@ -42,9 +42,8 @@ jobs:
       # Docker container (need new one for RTTOV)
 
     steps:
-      - name: Checkout repo
+      - name: re-checkout repo
         uses: actions/checkout@v4
-        # Re-checkout repo
 
       - name: Set to safe directory
         run: git config --global --add safe.directory /__w/${{ github.event.repository.name }}/${{ github.event.repository.name }}
