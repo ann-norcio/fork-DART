@@ -19,8 +19,10 @@ jobs:
       - name: Find all quickbuild.sh scripts
         id: set-matrix
         run: |
-          echo "::set-output name=matrix::{\"scripts\": $(find $GITHUB_WORKSPACE -executable -type f -name 'quickbuild.sh' | jq -R -s -c 'split("\n")[:-1]')}"
+          scripts=$(find $GITHUB_WORKSPACE -executable -type f -name 'quickbuild.sh' | jq -R -s -c 'split("\n")[:-1]')
+          echo "scripts=$scripts" >> $GITHUB_ENV
           # format all quickbuild.sh scripts as JSON array
+          # replace set-output command with new Environment Files method
             
   build:
     needs: prepare
