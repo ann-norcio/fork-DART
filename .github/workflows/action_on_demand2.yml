@@ -1,4 +1,4 @@
-name: Build Everything On Demand
+name: Build Everything On Demand 2
 
 on:
   workflow_dispatch:
