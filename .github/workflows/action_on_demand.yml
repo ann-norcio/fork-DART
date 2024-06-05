@@ -68,14 +68,24 @@ jobs:
 
       - name: Run quickbuild.sh scripts
         run: |
-          cd "$(dirname "${{ matrix.script }}")"
-          ./quickbuild.sh || echo "FAILED: ${{ matrix.script }}" >> $GITHUB_WORKSPACE/quickbuild-failures.txt
+          echo "Current directory: $(pwd)"
+          echo "Trying to cd into: $(dirname "${{ matrix.script }}")"
+          if [ -d "$(dirname "${{ matrix.script }}")" ]; then
+            cd "$(dirname "${{ matrix.script }}")"
+            ./quickbuild.sh || echo "FAILED: ${{ matrix.script }}" >> $GITHUB_WORKSPACE/quickbuild-failures.txt
+          else
+            echo "Directory does not exist: $(dirname "${{ matrix.script }}")"
+            echo "FAILED: ${{ matrix.script }}" >> $GITHUB_WORKSPACE/quickbuild-failures.txt
+          fi
           # Run quickbuild.sh scripts and log failures
 
       - name: Report Failures
-        if: failure()
         run: |
-          echo "Fails:"
-          cat $GITHUB_WORKSPACE/quickbuild-failures.txt
-          exit 1
+          if [ -f $GITHUB_WORKSPACE/quickbuild-failures.txt ]; then
+            echo "Failed builds:"
+            cat $GITHUB_WORKSPACE/quickbuild-failures.txt
+            exit 1
+          else
+            echo "All runs passed"
+          fi
           # Report all failed runs
