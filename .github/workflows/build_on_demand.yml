@@ -1,0 +1,93 @@
+name: Build Everything
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: 
+      image: hkershaw/dart-dep:latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Run quickbuild.sh scripts
+      run: |
+        #!/usr/bin/env bash
+
+        test_dir="build_everything/gcc"
+        mkdir -p $test_dir
+        cd $test_dir
+        git clone 'https://github.com/NCAR/DART.git'
+        cd DART
+        git checkout $GITHUB_REF_NAME
+        if [[ $? -ne 0 ]]; then  
+        # Check if the git checkout command failed
+          echo "unknown branch"
+          exit 1
+        fi
+
+        # Copy gfortran mkmf.template to build_templates directory
+        cp build_templates/mkmf.template.gfortran build_templates/mkmf.template
+
+        # Run fixsystem to avoid race conditions
+        cd assimilation_code/modules/utilities
+        ./fixsystem gfortran
+        cd -
+
+        # Build preprocess once
+        pp_dir=$DART/assimilation_code/programs/preprocess
+        cd $pp_dir
+        $DART/build_templates/mkmf -x -p $pp_dir/preprocess -a $DART $pp_dir/path_names_preprocess
+        cd -
+
+        # Modify input.nml files to use local versions of obs_def_mod.f90 and obs_kind_mod.f90
+        find . -name input.nml -exec sed -i -e "/^[[:space:]]*#/! s|.*output_obs_def_mod_file.*|output_obs_def_mod_file = './obs_def_mod.f90'|g" \
+          -e "/^[[:space:]]*#/! s|.*output_obs_qty_mod_file.*|output_obs_qty_mod_file = './obs_kind_mod.f90'|g" \
+          -e "/^[[:space:]]*#/! s|.*output_obs_kind_mod_file.*|output_obs_qty_mod_file = './obs_kind_mod.f90'|g" {} \;
+
+        # Store the current dir and initialize arrays to hold the process IDs, directories, and status codes
+        my_dir=$(pwd)
+        pids=()
+        dirs=()
+        status=()
+
+        # Find all quickbuild.sh executables and remove './' and 'quickbuild.sh'
+        files_to_process=( $(find $DART -executable -type f -name quickbuild.sh | sed -E 's#(\./|quickbuild\.sh)##g') )
+
+        # Iterate over each file and run quickbuild.sh
+        for f in "${files_to_process[@]}"; do
+
+            if [[ $f == *"template"* ]]; then
+               continue  
+               # Skip template models not for compiling
+            fi
+
+            case "$f" in
+                *obs_converters* ) cd $f; ./quickbuild.sh & ;;  # Run quickbuild.sh for obs_converters without mpif08
+                               * ) cd $f; ./quickbuild.sh mpif08 & ;;  # Run quickbuild.sh with mpif08 for other cases
+            esac
+
+            # Record the PID and directory of each process then cd back to starting directory
+            pids+=( "$!" )
+            dirs+=( "$f" )
+            cd $my_dir
+        done
+
+        # Wait for all background processes to finish and record their exit statuses
+        for pid in ${pids[@]}; do
+          wait ${pid}
+          status+=( "$?" )
+        done
+
+        # Check the status of each build process and log results
+        i=0
+        for st in ${status[@]}; do
+          # Display only failed processes
+          if [[ ${st} -ne 0 ]]; then
+            echo "gcc RESULT: $i ${dirs[$i]} FAILED"
+          fi
+          ((i+=1))
+        done
