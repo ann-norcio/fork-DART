@@ -15,11 +15,14 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
+    - name: Set to safe directory
+      run: git config --global --add safe.directory /__w/${{ github.event.repository.name }}/${{ github.event.repository.name }}
+
     - name: Run quickbuild.sh scripts
       run: |
         #!/bin/bash
 
-        test_dir="build_everything/gcc"
+        test_dir="$GITHUB_WORKSPACE/build_everything/gcc"
         mkdir -p $test_dir
         cd $test_dir
         git clone 'https://github.com/NCAR/DART.git'
@@ -40,9 +43,9 @@ jobs:
         cd -
 
         # Build preprocess once
-        pp_dir=$DART/assimilation_code/programs/preprocess
+        pp_dir=$GITHUB_WORKSPACE/build_everything/gcc/DART/assimilation_code/programs/preprocess
         cd $pp_dir
-        $DART/build_templates/mkmf -x -p $pp_dir/preprocess -a $DART $pp_dir/path_names_preprocess
+        $GITHUB_WORKSPACE/build_everything/gcc/DART/build_templates/mkmf -x -p $pp_dir/preprocess -a $GITHUB_WORKSPACE/build_everything/gcc/DART $pp_dir/path_names_preprocess
         cd -
 
         # Modify input.nml files to use local versions of obs_def_mod.f90 and obs_kind_mod.f90
@@ -57,7 +60,7 @@ jobs:
         status=()
 
         # Find all quickbuild.sh executables and remove './' and 'quickbuild.sh'
-        files_to_process=( $(find $DART -executable -type f -name quickbuild.sh | sed -E 's#(\./|quickbuild\.sh)##g') )
+        files_to_process=( $(find $GITHUB_WORKSPACE/build_everything/gcc/DART -executable -type f -name quickbuild.sh | sed -E 's#(\./|quickbuild\.sh)##g') )
 
         # Iterate over each file and run quickbuild.sh
         for f in "${files_to_process[@]}"; do
@@ -89,7 +92,7 @@ jobs:
         for st in ${status[@]}; do
           # Display only failed processes
           if [ ${st} -ne 0 ]; then
-            echo "gcc RESULT: $i ${dirs[$i]} FAILED"
+            echo "FAILED: $i ${dirs[$i]}"
           fi
           ((i+=1))
         done
