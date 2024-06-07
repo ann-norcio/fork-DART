@@ -6,12 +6,14 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    
     container: 
-      image: hkershaw/dart-dep:latest
+      image: hkershaw/dart-dep:1.0
+      options: "--cap-add=SYS_PTRACE"
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
 
     - name: Run quickbuild.sh scripts
       run: |
