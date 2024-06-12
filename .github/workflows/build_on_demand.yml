@@ -23,6 +23,9 @@ jobs:
     - name: Run quickbuild.sh scripts
       run: |
         #!/bin/bash
+
+        set -e
+        set -o pipefail
         
         test_dir="$GITHUB_WORKSPACE/build_everything/gcc"
         mkdir -p $test_dir
