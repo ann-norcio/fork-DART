@@ -35,6 +35,9 @@ jobs:
           echo "unknown branch"
           exit 1
         fi
+
+        # Set DART env variable
+        export DART=$(pwd)
         
         # Copy gfortran mkmf.template to build_templates directory
         cp build_templates/mkmf.template.gfortran build_templates/mkmf.template
