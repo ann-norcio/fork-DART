@@ -21,6 +21,7 @@ jobs:
       run: git config --global --add safe.directory /__w/${{ github.event.repository.name }}/${{ github.event.repository.name }}
 
     - name: Run quickbuild.sh scripts
+      shell: bash
       run: |
         #!/bin/bash
 
